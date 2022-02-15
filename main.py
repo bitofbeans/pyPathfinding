@@ -299,7 +299,7 @@ class GameState:
             self.visual = True
         else:
             self.visual = False
-
+        oldtime=pygame.time.get_ticks()
         while openSet:  # While not empty
             # Find the node in the openSet with the lowest f value
             lowest = 99999
@@ -313,6 +313,7 @@ class GameState:
 
             if current == dest:
                 # We found the destination
+                print(pygame.time.get_ticks()-oldtime)
                 return self.reconstruct_path(
                     cameFrom, current
                 )  # Recreate path to destination
@@ -401,13 +402,14 @@ class GuiState:
         ttk.Combobox(frame,textvariable=self.heuristic, values=('Manhattan', 'Euclidean')).grid(column=0, row=3)
 
         self.visualize = tk.StringVar()
-        ttk.Checkbutton(frame,text="Visualize?", onvalue=True, offvalue=False, variable=self.visualize).grid(column=0, row=4)
+        ttk.Checkbutton(frame,text="Visualize?", onvalue=True, offvalue="", variable=self.visualize).grid(column=0, row=4)
 
     def update(self):
         global METHOD
         global VISUALIZE
         METHOD = self.heuristic.get()
         VISUALIZE = self.visualize.get()
+        print(VISUALIZE)
         
         self.root.update()
 # ----- INITIALIZE ------------------------ #
