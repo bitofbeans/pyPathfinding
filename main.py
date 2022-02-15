@@ -1,18 +1,19 @@
-from math import sqrt, inf
-from copy import deepcopy
+from math import sqrt
+import tkinter as tk
+from tkinter import ttk
 import pygame
 
 
 # Uses the A* pathfinding algorithm #
 
-METHOD = "Manhattan"
-'METHOD = "Euclidean"'
+METHOD = "Manhattan"  # Better for grids
+# METHOD = "Euclidean" # Better for other
 
 # ----- CONSTANTS ------------------------ #
 SCREEN_WIDTH = 1000
 SCREEN_HEIGHT = 1000
 FPS = 60  # Frames per second
-VISUALIZE = False
+VISUALIZE = True
 
 # Define colors
 WHITE = (255, 255, 255)
@@ -83,7 +84,7 @@ class GameState:
         self.square = 0
         self.pressed = False
 
-    def render(self, visual=False):
+    def render(self):
         """
         Draws screen and handles inputs
         """
@@ -114,7 +115,7 @@ class GameState:
                 elif self.grid[y][x] == "@":
                     dist = self.calcDist((x, y), self.dest)
 
-                    if visual == True:
+                    if self.visual == True:
                         if dist < 50:
                             r = 255
                             g = round(dist / 50 * 209)
@@ -134,7 +135,7 @@ class GameState:
             self.pressed = True
 
             path = self.A_Star(self.start, self.dest)  # Returns a path to destination
-
+            self.visual = False
             if path == "Failure":
                 return
             self.remove_all_of("@")
@@ -294,6 +295,11 @@ class GameState:
         # To record the loop cycles
         cycles = 0
 
+        if VISUALIZE:
+            self.visual = True
+        else:
+            self.visual = False
+
         while openSet:  # While not empty
             # Find the node in the openSet with the lowest f value
             lowest = 99999
@@ -342,16 +348,17 @@ class GameState:
                 raise SystemError("Pathfinding took too long (no path?)")
 
             # ___----*** VISUALIZE ***----___ #
-            if VISUALIZE == False:
+            if self.visual == False:
                 continue
 
-            self.apply_path_to_grid(self.reconstruct_path(cameFrom, current), "@")
-
-            self.render(visual=True)
+            self.apply_path_to_grid(
+                self.reconstruct_path(cameFrom, current), "@"
+            )  # Show changes
+            self.render()
 
             # --- PyGame Display --- #
             pygame.display.update()
-            clock.tick(FPS / 2)  # Set frame rate
+            clock.tick(FPS / 2)  # Render half speed
 
         return "Failure"
 
@@ -380,11 +387,39 @@ class GameState:
             rowCount += 1
 
 
-# ----- INITIALIZE ------------------------ #
-game = GameState()
-run = True
+class GuiState:
+    def __init__(self):
+        self.root = tk.Tk()
+        frame = ttk.Frame(self.root, padding=10)
+        frame.grid()
+        
+        ttk.Label(frame, text="Configure options:").grid(column=0, row=0)
+        ttk.Label(frame, text="Heuristic").grid(column=0, row=2)
+        
+        self.heuristic=tk.StringVar()
+        self.heuristic.set("Manhattan")
+        ttk.Combobox(frame,textvariable=self.heuristic, values=('Manhattan', 'Euclidean')).grid(column=0, row=3)
 
-while run:
+        self.visualize = tk.StringVar()
+        ttk.Checkbutton(frame,text="Visualize?", onvalue=True, offvalue=False, variable=self.visualize).grid(column=0, row=4)
+
+    def update(self):
+        global METHOD
+        global VISUALIZE
+        METHOD = self.heuristic.get()
+        VISUALIZE = self.visualize.get()
+        
+        self.root.update()
+# ----- INITIALIZE ------------------------ #
+
+
+def main():
+    """
+    Event loop for program.
+
+    Usage: main()
+    """
+    global run
     # --- Escape condition --- #
     for event in pygame.event.get():
         if event.type == pygame.QUIT:
@@ -395,6 +430,15 @@ while run:
     # --- PyGame Display --- #
     pygame.display.update()
     clock.tick(FPS)  # Set frame rate
+
+
+game = GameState()
+gui = GuiState()
+run = True
+
+while run:
+    gui.update()  # Update gui
+    main()
 
 # ----- END ------------------------ #
 pygame.quit()  # Close
