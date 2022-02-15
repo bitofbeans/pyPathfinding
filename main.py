@@ -12,7 +12,7 @@ METHOD = "Manhattan"
 SCREEN_WIDTH = 1000
 SCREEN_HEIGHT = 1000
 FPS = 60  # Frames per second
-VISUALIZE = True
+VISUALIZE = False
 
 # Define colors
 WHITE = (255, 255, 255)
@@ -338,7 +338,7 @@ class GameState:
                         openSetFScores.append(trial_fScore)  # and add value
 
             cycles += 1
-            if cycles > 1500:
+            if cycles > 2500:
                 raise SystemError("Pathfinding took too long (no path?)")
 
             # ___----*** VISUALIZE ***----___ #
