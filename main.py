@@ -1,7 +1,7 @@
 from math import sqrt
 import tkinter as tk
 from tkinter import ttk
-from turtle import bgcolor
+from turtle import bgcolor, width
 import pygame
 import clipboard
 
@@ -10,6 +10,7 @@ import clipboard
 
 METHOD = "Manhattan"  # Better for grids
 # METHOD = "Euclidean" # Better for other
+# METHOD = "Diagonal" # ???
 
 # ----- CONSTANTS ------------------------ #
 SCREEN_WIDTH = 1000
@@ -219,6 +220,9 @@ class GameState:
 
         Euclidean Method:
         h= sqrt of ( xstart - xdestination )^2+( ystart - ydestination )^2
+        
+        Diagonal Method:
+        see https://theory.stanford.edu/~amitp/GameProgramming/Heuristics.html#S7
         """
         x_start, y_start = start
         x_end, y_end = end
@@ -227,8 +231,14 @@ class GameState:
             h = abs(x_start - x_end) + abs(y_start - y_end)
         elif METHOD == "Euclidean":
             h = sqrt((x_start - x_end) ** 2 + (y_start - y_end) ** 2)
+        elif METHOD == "Diagonal":
+            dx = abs(x_start - x_end)
+            dy = abs(y_start - y_end)
+            h = (dx+dy) + (1.4-2) * min(dx,dy)
         else:
-            raise SystemError("Not a valid method")
+            gui.log("")
+            gui.log("(none selected?)")
+            gui.log("Method error")
         return h
 
     def calcCost(self, start, end):
@@ -336,8 +346,9 @@ class GameState:
 
             if current == dest:
                 # We found the destination
-                print(pygame.time.get_ticks()-oldtime)
-                print(str(cycles) + "cycles")
+                gui.log("")
+                gui.log(f'Finished in: {pygame.time.get_ticks()-oldtime} ms.')
+                gui.log(f"Took {cycles} cycles to complete.")
                 return self.reconstruct_path(
                     cameFrom, current
                 )  # Recreate path to destination
@@ -370,8 +381,11 @@ class GameState:
 
             cycles += 1
             if cycles > 2500:
+                gui.log("")
+                gui.log("(blocked off?)")
+                gui.log("Path not found.")
+                
                 return "Failure"
-                raise SystemError("Pathfinding took too long (no path?)")
 
             for event in pygame.event.get():
                 if event.type == pygame.QUIT:
@@ -395,7 +409,9 @@ class GameState:
             pygame.display.update()
             
             
-
+        gui.log("")
+        gui.log("(blocked off?)")
+        gui.log("Path not found.")
         return "Failure"
 
     def apply_path_to_grid(self, path, value):
@@ -430,46 +446,69 @@ class GuiState:
         frame = ttk.Frame(self.root, padding=10)
         frame.grid()
         
+        # Text
         ttk.Label(frame, text="Configure options:").grid(column=0, row=0)
         ttk.Label(frame, text="Heuristic").grid(column=0, row=1)
         
+        # Select heuristic
         self.heuristic=tk.StringVar()
         self.heuristic.set("Manhattan")
-        ttk.Combobox(frame,textvariable=self.heuristic, values=('Manhattan', 'Euclidean')).grid(column=0, row=2)
-
+        ttk.Combobox(frame,textvariable=self.heuristic, values=('Manhattan', 'Euclidean', 'Diagonal')).grid(column=0, row=2)
+        
+        # Visualize check box
         self.visualize = tk.StringVar()
         ttk.Checkbutton(frame,text="Visualize?", onvalue=True, offvalue="", variable=self.visualize).grid(column=0, row=3)
         
+        # Bounded relaxation/Dynamic weighting
+        
+        
+        # Console log
+        ttk.Label(frame, text="Console Log:").grid(column=0, row=5)
+        self.console = tk.Listbox(frame, height=3, width=25)
+        self.console.grid(column=0, row=6) # MUST BE ON DIFFERENT LINE
+        
+        # White space
         ttk.Label(frame, text="             ").grid(column=2, row=0)
         
-        boldStyle = ttk.Style()
-        boldStyle.configure("Bold.TButton", font = ('Sans','12','bold'))
-        ttk.Button(frame, text="PATHFIND", command=game.pathfinder, padding=3,style="Bold.TButton").grid(column=2, row=7)
-
-        
+        # Text
         ttk.Label(frame, text="Functions:").grid(column=3, row=0)
         
+        # Remove walls button
         ttk.Button(frame, text="Remove All Walls", command= lambda: game.remove_all_of("#")).grid(column=3, row=1)
         
+        # Function for removing start/end points
         def remove_start_and_end(): 
             game.remove_all_of("X")
             game.remove_all_of("O")
             game.remove_all_of("@")
             game.phase = "START"
+        # Remove target points
         ttk.Button(frame, text="Remove Start and End", command=remove_start_and_end).grid(column=3, row=2)
         
+        # Clipboard copy
         ttk.Button(frame, text="Save to Clipboard", command=game.save_to_clip).grid(column=3, row=3)
         
+        # Clipboard paste
         ttk.Button(frame, text="Load from Clipboard", command=game.load_from_clip).grid(column=3, row=4)
-
         
+        # PATHFIND BUTTON
+        boldStyle = ttk.Style()
+        boldStyle.configure("Bold.TButton", font = ('Sans','12','bold'))
+        ttk.Button(frame, text="PATHFIND", command=game.pathfinder, padding=3,style="Bold.TButton").grid(column=3, row=6)
+  
     def update(self):
+        """Update GUI"""
         global METHOD
         global VISUALIZE
         METHOD = self.heuristic.get().replace(" ", "")
         VISUALIZE = self.visualize.get()
         
         self.root.update()
+    
+    def log(self, value):
+        """Log a value to the GUI console"""
+        self.console.insert(0,value)
+        
 # ----- INITIALIZE ------------------------ #
 
 
@@ -492,7 +531,6 @@ def main():
     pygame.display.update()
     clock.tick(FPS)  # Set frame rate
         
-
 
 game = GameState()
 gui = GuiState()
