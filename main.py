@@ -134,33 +134,52 @@ class GameState:
                 pygame.draw.rect(screen, color, self.square, border_radius=2)
 
     def pathfinder(self):
-        self.remove_all_of("@")
-        path = self.A_Star(self.start, self.dest)  # Returns a path to destination
-        self.visual = False
-        if path == "Failure":
+        self.remove_all_of("@")  # Clear path that was there
+
+        # Verify a start and end has been chosen
+        try:
+            if len(self.start) > 0 and len(self.dest) > 0:
+                pass
+        except AttributeError:
+            gui.log("")
+            gui.log("have not been chosen.")
+            gui.log("Start and end points")
             return
-        self.remove_all_of("@")
-        self.apply_path_to_grid(path, "@")
-        
-    def save_to_clip(self): 
-        code = self.grid
-        code = [item for row in code for item in row]
-        code = "".join(code)
-        code.replace(" ", "")
-        clipboard.copy(code)
-        
+
+        path = self.A_Star(self.start, self.dest)  # Returns a path to destination
+
+        if path == "Failure":
+            return  # If failed, stop
+
+        self.remove_all_of("@")  # Clear path if was visualized
+        self.apply_path_to_grid(path, "@")  # Show path on screen
+
+    def save_to_clip(self):
+        """
+        Turns a grid to a string and copies it to the clipboard
+        """
+        code = self.grid  # Copy
+        code = [item for row in code for item in row]  # Flatten
+        code = "".join(code)  # Turn to string
+        code.replace(" ", "")  # Remove white space
+        clipboard.copy(code)  # Copy to clipboard
+
     def load_from_clip(self):
+        """
+        Load a grid from the clipboard.
+        """
         code = clipboard.paste()
-        size = ROWS*COLS
+        size = ROWS * COLS
         if "X" in code and "O" in code:
             self.phase = "WALLS"
-        else: return
+        else:
+            return
         if len(code) == size:
             for i in range(len(code)):
-                x = (i%ROWS) # Solve for x
-                y = int(i/ROWS) # and y
+                x = i % ROWS  # Solve for x
+                y = int(i / ROWS)  # and y
                 self.grid[y][x] = code[i]
-        self.remove_all_of("@") # Incase it contains the path
+        self.remove_all_of("@")  # Incase it contains the path
 
     def updateTile(self, pos):
 
@@ -203,7 +222,7 @@ class GameState:
             if self.phase == "WALLS":
                 if self.grid[y][x] == "#":
                     self.grid[y][x] = "."
-        
+
         if self.mouseClicked[0] == False:
             self.clicked = False
 
@@ -220,7 +239,7 @@ class GameState:
 
         Euclidean Method:
         h= sqrt of ( xstart - xdestination )^2+( ystart - ydestination )^2
-        
+
         Diagonal Method:
         see https://theory.stanford.edu/~amitp/GameProgramming/Heuristics.html#S7
         """
@@ -234,7 +253,7 @@ class GameState:
         elif METHOD == "Diagonal":
             dx = abs(x_start - x_end)
             dy = abs(y_start - y_end)
-            h = (dx+dy) + (1.4-2) * min(dx,dy)
+            h = (dx + dy) + (1.4 - 2) * min(dx, dy)
         else:
             gui.log("")
             gui.log("(none selected?)")
@@ -251,11 +270,8 @@ class GameState:
 
     def findNeighbors(self, node):
         def tryAdd(nx, ny):
-            try:
-                if self.grid[ny][nx] != "#":  # If it is not a wall,
-                    neighbors.append((nx, ny))  # add to neighbors list
-            except:
-                pass
+            if self.grid[ny][nx] != "#":  # If it is not a wall,
+                neighbors.append((nx, ny))  # add to neighbors list
 
         neighbors = []
         x, y = node
@@ -331,8 +347,8 @@ class GameState:
             self.visual = True
         else:
             self.visual = False
-            
-        oldtime=pygame.time.get_ticks()
+
+        oldtime = pygame.time.get_ticks()
         while openSet:  # While not empty
             # Find the node in the openSet with the lowest f value
             lowest = 99999
@@ -347,7 +363,7 @@ class GameState:
             if current == dest:
                 # We found the destination
                 gui.log("")
-                gui.log(f'Finished in: {pygame.time.get_ticks()-oldtime} ms.')
+                gui.log(f"Finished in: {pygame.time.get_ticks()-oldtime} ms.")
                 gui.log(f"Took {cycles} cycles to complete.")
                 return self.reconstruct_path(
                     cameFrom, current
@@ -358,7 +374,7 @@ class GameState:
             openSetFScores.pop(currentIDX)  # And remove its fScore value
             # Go through all valid neighbors
             for neighbor in self.findNeighbors(current):
-                
+
                 currentX, currentY = current
                 neighborX, neighborY = neighbor
                 if self.grid[neighborY][neighborX] == "#":
@@ -384,12 +400,12 @@ class GameState:
                 gui.log("")
                 gui.log("(blocked off?)")
                 gui.log("Path not found.")
-                
+
                 return "Failure"
 
             for event in pygame.event.get():
                 if event.type == pygame.QUIT:
-                    global run 
+                    global run
                     run = False
                     pygame.quit()
                     return
@@ -397,9 +413,9 @@ class GameState:
             # ___----*** VISUALIZE ***----___ #
             if self.visual == False:
                 continue
-            
-            clock.tick(FPS/2)  # Render half speed
-            
+
+            clock.tick(FPS / 2)  # Render half speed
+
             self.apply_path_to_grid(
                 self.reconstruct_path(cameFrom, current), "@"
             )  # Show changes
@@ -407,8 +423,7 @@ class GameState:
 
             # --- PyGame Display --- #
             pygame.display.update()
-            
-            
+
         gui.log("")
         gui.log("(blocked off?)")
         gui.log("Path not found.")
@@ -420,7 +435,8 @@ class GameState:
 
         Usage: apply_path_to_grid(path, "@")
         """
-        if not path: return 
+        if not path:
+            return
         for node in path:
             x, y = node
             if self.grid[y][x] != "X" and self.grid[y][x] != "O":
@@ -445,70 +461,91 @@ class GuiState:
         self.root = tk.Tk()
         frame = ttk.Frame(self.root, padding=10)
         frame.grid()
-        
+
         # Text
         ttk.Label(frame, text="Configure options:").grid(column=0, row=0)
         ttk.Label(frame, text="Heuristic").grid(column=0, row=1)
-        
+
         # Select heuristic
-        self.heuristic=tk.StringVar()
+        self.heuristic = tk.StringVar()
         self.heuristic.set("Manhattan")
-        ttk.Combobox(frame,textvariable=self.heuristic, values=('Manhattan', 'Euclidean', 'Diagonal')).grid(column=0, row=2)
-        
+        ttk.Combobox(
+            frame,
+            textvariable=self.heuristic,
+            values=("Manhattan", "Euclidean", "Diagonal"),
+        ).grid(column=0, row=2)
+
         # Visualize check box
         self.visualize = tk.StringVar()
-        ttk.Checkbutton(frame,text="Visualize?", onvalue=True, offvalue="", variable=self.visualize).grid(column=0, row=3)
-        
+        ttk.Checkbutton(
+            frame, text="Visualize?", onvalue=True, offvalue="", variable=self.visualize
+        ).grid(column=0, row=3)
+
         # Bounded relaxation/Dynamic weighting
-        
-        
+
         # Console log
         ttk.Label(frame, text="Console Log:").grid(column=0, row=5)
         self.console = tk.Listbox(frame, height=3, width=25)
-        self.console.grid(column=0, row=6) # MUST BE ON DIFFERENT LINE
-        
+        self.console.grid(column=0, row=6)  # MUST BE ON DIFFERENT LINE
+
         # White space
         ttk.Label(frame, text="             ").grid(column=2, row=0)
-        
+
         # Text
         ttk.Label(frame, text="Functions:").grid(column=3, row=0)
-        
+
         # Remove walls button
-        ttk.Button(frame, text="Remove All Walls", command= lambda: game.remove_all_of("#")).grid(column=3, row=1)
-        
+        ttk.Button(
+            frame, text="Remove All Walls", command=lambda: game.remove_all_of("#")
+        ).grid(column=3, row=1)
+
         # Function for removing start/end points
-        def remove_start_and_end(): 
+        def remove_start_and_end():
             game.remove_all_of("X")
             game.remove_all_of("O")
             game.remove_all_of("@")
             game.phase = "START"
+
         # Remove target points
-        ttk.Button(frame, text="Remove Start and End", command=remove_start_and_end).grid(column=3, row=2)
-        
+        ttk.Button(
+            frame, text="Remove Start and End", command=remove_start_and_end
+        ).grid(column=3, row=2)
+
         # Clipboard copy
-        ttk.Button(frame, text="Save to Clipboard", command=game.save_to_clip).grid(column=3, row=3)
-        
+        ttk.Button(frame, text="Save to Clipboard", command=game.save_to_clip).grid(
+            column=3, row=3
+        )
+
         # Clipboard paste
-        ttk.Button(frame, text="Load from Clipboard", command=game.load_from_clip).grid(column=3, row=4)
-        
+        ttk.Button(frame, text="Load from Clipboard", command=game.load_from_clip).grid(
+            column=3, row=4
+        )
+
         # PATHFIND BUTTON
         boldStyle = ttk.Style()
-        boldStyle.configure("Bold.TButton", font = ('Sans','12','bold'))
-        ttk.Button(frame, text="PATHFIND", command=game.pathfinder, padding=3,style="Bold.TButton").grid(column=3, row=6)
-  
+        boldStyle.configure("Bold.TButton", font=("Sans", "12", "bold"))
+        ttk.Button(
+            frame,
+            text="PATHFIND",
+            command=game.pathfinder,
+            padding=3,
+            style="Bold.TButton",
+        ).grid(column=3, row=6)
+
     def update(self):
         """Update GUI"""
         global METHOD
         global VISUALIZE
         METHOD = self.heuristic.get().replace(" ", "")
         VISUALIZE = self.visualize.get()
-        
+
         self.root.update()
-    
+
     def log(self, value):
         """Log a value to the GUI console"""
-        self.console.insert(0,value)
-        
+        self.console.insert(0, value)
+
+
 # ----- INITIALIZE ------------------------ #
 
 
@@ -519,7 +556,8 @@ def main():
     Usage: main()
     """
     global run
-    if not run: return
+    if not run:
+        return
     # --- Escape condition --- #
     for event in pygame.event.get():
         if event.type == pygame.QUIT:
@@ -530,7 +568,7 @@ def main():
     # --- PyGame Display --- #
     pygame.display.update()
     clock.tick(FPS)  # Set frame rate
-        
+
 
 game = GameState()
 gui = GuiState()
