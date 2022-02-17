@@ -1,7 +1,9 @@
 from math import sqrt
 import tkinter as tk
 from tkinter import ttk
+from turtle import bgcolor
 import pygame
+import clipboard
 
 
 # Uses the A* pathfinding algorithm #
@@ -130,18 +132,34 @@ class GameState:
                 # Render square
                 pygame.draw.rect(screen, color, self.square, border_radius=2)
 
-        keys = pygame.key.get_pressed()
-        if keys[pygame.K_SPACE] and self.pressed == False:
-            self.pressed = True
-
-            path = self.A_Star(self.start, self.dest)  # Returns a path to destination
-            self.visual = False
-            if path == "Failure":
-                return
-            self.remove_all_of("@")
-            self.apply_path_to_grid(path, "@")
-        elif not keys[pygame.K_SPACE]:
-            self.pressed = False
+    def pathfinder(self):
+        self.remove_all_of("@")
+        path = self.A_Star(self.start, self.dest)  # Returns a path to destination
+        self.visual = False
+        if path == "Failure":
+            return
+        self.remove_all_of("@")
+        self.apply_path_to_grid(path, "@")
+        
+    def save_to_clip(self): 
+        code = self.grid
+        code = [item for row in code for item in row]
+        code = "".join(code)
+        code.replace(" ", "")
+        clipboard.copy(code)
+        
+    def load_from_clip(self):
+        code = clipboard.paste()
+        size = ROWS*COLS
+        if "X" in code and "O" in code:
+            self.phase = "WALLS"
+        else: return
+        if len(code) == size:
+            for i in range(len(code)):
+                x = (i%ROWS) # Solve for x
+                y = int(i/ROWS) # and y
+                self.grid[y][x] = code[i]
+        self.remove_all_of("@") # Incase it contains the path
 
     def updateTile(self, pos):
 
@@ -166,7 +184,7 @@ class GameState:
         if (
             self.square.collidepoint(self.mousePos) and self.mouseClicked[0]
         ):  # If clicked
-            if self.grid[y][x] == ".":  # And empty space
+            if self.grid[y][x] != "X" and self.grid[y][x] != "O":  # And empty space
 
                 if not self.clicked:
                     if self.phase == "START":
@@ -180,7 +198,11 @@ class GameState:
                     self.grid[y][x] = "#"
 
                 self.clicked = True
-
+        elif self.square.collidepoint(self.mousePos) and self.mouseClicked[2]:
+            if self.phase == "WALLS":
+                if self.grid[y][x] == "#":
+                    self.grid[y][x] = "."
+        
         if self.mouseClicked[0] == False:
             self.clicked = False
 
@@ -299,6 +321,7 @@ class GameState:
             self.visual = True
         else:
             self.visual = False
+            
         oldtime=pygame.time.get_ticks()
         while openSet:  # While not empty
             # Find the node in the openSet with the lowest f value
@@ -314,6 +337,7 @@ class GameState:
             if current == dest:
                 # We found the destination
                 print(pygame.time.get_ticks()-oldtime)
+                print(str(cycles) + "cycles")
                 return self.reconstruct_path(
                     cameFrom, current
                 )  # Recreate path to destination
@@ -323,7 +347,7 @@ class GameState:
             openSetFScores.pop(currentIDX)  # And remove its fScore value
             # Go through all valid neighbors
             for neighbor in self.findNeighbors(current):
-
+                
                 currentX, currentY = current
                 neighborX, neighborY = neighbor
                 if self.grid[neighborY][neighborX] == "#":
@@ -346,12 +370,22 @@ class GameState:
 
             cycles += 1
             if cycles > 2500:
+                return "Failure"
                 raise SystemError("Pathfinding took too long (no path?)")
+
+            for event in pygame.event.get():
+                if event.type == pygame.QUIT:
+                    global run 
+                    run = False
+                    pygame.quit()
+                    return
 
             # ___----*** VISUALIZE ***----___ #
             if self.visual == False:
                 continue
-
+            
+            clock.tick(FPS/2)  # Render half speed
+            
             self.apply_path_to_grid(
                 self.reconstruct_path(cameFrom, current), "@"
             )  # Show changes
@@ -359,7 +393,8 @@ class GameState:
 
             # --- PyGame Display --- #
             pygame.display.update()
-            clock.tick(FPS / 2)  # Render half speed
+            
+            
 
         return "Failure"
 
@@ -369,6 +404,7 @@ class GameState:
 
         Usage: apply_path_to_grid(path, "@")
         """
+        if not path: return 
         for node in path:
             x, y = node
             if self.grid[y][x] != "X" and self.grid[y][x] != "O":
@@ -395,21 +431,43 @@ class GuiState:
         frame.grid()
         
         ttk.Label(frame, text="Configure options:").grid(column=0, row=0)
-        ttk.Label(frame, text="Heuristic").grid(column=0, row=2)
+        ttk.Label(frame, text="Heuristic").grid(column=0, row=1)
         
         self.heuristic=tk.StringVar()
         self.heuristic.set("Manhattan")
-        ttk.Combobox(frame,textvariable=self.heuristic, values=('Manhattan', 'Euclidean')).grid(column=0, row=3)
+        ttk.Combobox(frame,textvariable=self.heuristic, values=('Manhattan', 'Euclidean')).grid(column=0, row=2)
 
         self.visualize = tk.StringVar()
-        ttk.Checkbutton(frame,text="Visualize?", onvalue=True, offvalue="", variable=self.visualize).grid(column=0, row=4)
+        ttk.Checkbutton(frame,text="Visualize?", onvalue=True, offvalue="", variable=self.visualize).grid(column=0, row=3)
+        
+        ttk.Label(frame, text="             ").grid(column=2, row=0)
+        
+        boldStyle = ttk.Style()
+        boldStyle.configure("Bold.TButton", font = ('Sans','12','bold'))
+        ttk.Button(frame, text="PATHFIND", command=game.pathfinder, padding=3,style="Bold.TButton").grid(column=2, row=7)
 
+        
+        ttk.Label(frame, text="Functions:").grid(column=3, row=0)
+        
+        ttk.Button(frame, text="Remove All Walls", command= lambda: game.remove_all_of("#")).grid(column=3, row=1)
+        
+        def remove_start_and_end(): 
+            game.remove_all_of("X")
+            game.remove_all_of("O")
+            game.remove_all_of("@")
+            game.phase = "START"
+        ttk.Button(frame, text="Remove Start and End", command=remove_start_and_end).grid(column=3, row=2)
+        
+        ttk.Button(frame, text="Save to Clipboard", command=game.save_to_clip).grid(column=3, row=3)
+        
+        ttk.Button(frame, text="Load from Clipboard", command=game.load_from_clip).grid(column=3, row=4)
+
+        
     def update(self):
         global METHOD
         global VISUALIZE
-        METHOD = self.heuristic.get()
+        METHOD = self.heuristic.get().replace(" ", "")
         VISUALIZE = self.visualize.get()
-        print(VISUALIZE)
         
         self.root.update()
 # ----- INITIALIZE ------------------------ #
@@ -422,6 +480,7 @@ def main():
     Usage: main()
     """
     global run
+    if not run: return
     # --- Escape condition --- #
     for event in pygame.event.get():
         if event.type == pygame.QUIT:
@@ -432,6 +491,7 @@ def main():
     # --- PyGame Display --- #
     pygame.display.update()
     clock.tick(FPS)  # Set frame rate
+        
 
 
 game = GameState()
