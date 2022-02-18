@@ -4,6 +4,7 @@ from tkinter import ttk  # Gui
 import pygame  # Main Window
 import clipboard  # Copy and Paste
 from tktooltip import ToolTip  # Tool tips
+import colorsys as colors
 
 DYNAMIC_WEIGHT = False
 OPTIMALITY_BOUND = 10
@@ -18,9 +19,9 @@ A great help from:
 
 
 # ----- CONSTANTS ------------------------ #
-SCREEN_WIDTH = 1000
-SCREEN_HEIGHT = 1000
-FPS = 60  # Frames per second
+SCREEN_WIDTH = 800
+SCREEN_HEIGHT = 800
+FPS = 120  # Frames per second
 VISUALIZE = True
 
 # Define colors
@@ -37,7 +38,7 @@ SPACE = int(0)  # Space between tiles
 # ----- PYGAME --------------------------- #
 pygame.init()  # Start up pygame
 screen = pygame.display.set_mode(
-    (SCREEN_WIDTH + 30, SCREEN_HEIGHT + 30)
+    (SCREEN_WIDTH + 10, SCREEN_HEIGHT + 10)
 )  # Create window
 pygame.display.set_caption("Pathfinder")
 clock = pygame.time.Clock()  # Get clock object for FPS
@@ -96,14 +97,15 @@ class GameState:
         """
         Draws screen and handles inputs
         """
-
+        self.flatGrid = self.flatten(self.grid)
+        self.hasPath = "@" in self.flatGrid
         self.mousePos = pygame.mouse.get_pos()
         self.mouseClicked = pygame.mouse.get_pressed()
         for y in range(COLS):
             for x in range(ROWS):
                 # pos= position---margin---offset------
-                posx = x * self.size + x * SPACE + 15  # Position X
-                posy = y * self.size + y * SPACE + 15  # Position Y
+                posx = x * self.size + x * SPACE + 5  # Position X
+                posy = y * self.size + y * SPACE + 5  # Position Y
                 self.square = pygame.rect.Rect(
                     posx, posy, self.size, self.size
                 )  # Create square object
@@ -124,23 +126,22 @@ class GameState:
                     dist = self.heuristic((x, y), self.dest)
 
                     if self.visual == True:
-                        if dist < 50:
-                            r = 255
-                            g = round(dist / 50 * 209)
-                            b = 166
-                        else:
-                            r = round((100 - dist) / 50 * 209)
-                            g = 255
-                            b = 166
+                        h = (dist)/360
+                        s = .84
+                        v = 1
+                        r,g,b = colors.hsv_to_rgb(h,s,v)
+                        r *= 255
+                        g *= 255
+                        b *= 255
                         color = (r, g, b)
                     else:
-                        color = (70, 130, 255)
+                        color = (90, 150, 255)
                 # Render square
-                pygame.draw.rect(screen, color, self.square, border_radius=2)
+                pygame.draw.rect(screen, color, self.square, border_radius=2 if self.grid[y][x] != "@" else 10)
 
     def pathfinder(self):
         self.remove_all_of("@")  # Clear path that was there
-
+        temp = self.phase
         # Verify a start and end has been chosen
         try:
             if len(self.start) > 0 and len(self.dest) > 0:
@@ -151,8 +152,9 @@ class GameState:
             gui.log("Start and end points")
             return
 
+        self.phase = "BUSY"
         path = self.A_Star(self.start, self.dest)  # Returns a path to destination
-
+        self.phase = temp
         self.visual = False
         if path == "Failure":
             return  # If failed, stop
@@ -160,12 +162,16 @@ class GameState:
         self.remove_all_of("@")  # Clear path if was visualized
         self.apply_path_to_grid(path, "@")  # Show path on screen
 
+    def flatten(self, array):
+        """Flatten a 2D array"""
+        return [item for row in array for item in row]
+    
     def save_to_clip(self):
         """
         Turns a grid to a string and copies it to the clipboard
         """
         code = self.grid  # Copy
-        code = [item for row in code for item in row]  # Flatten
+        code = self.flatten(code)  # Flatten
         code = "".join(code)  # Turn to string
         code.replace(" ", "")  # Remove white space
         clipboard.copy(code)  # Copy to clipboard
@@ -207,19 +213,22 @@ class GameState:
                         Place the wall
         """
         x, y = pos
+        if self.phase == "BUSY": return
         if (
             self.square.collidepoint(self.mousePos) and self.mouseClicked[0]
         ):  # If clicked
+            if self.hasPath: 
+                self.remove_all_of("@")
             if self.grid[y][x] != "X" and self.grid[y][x] != "O":  # And empty space
 
                 if not self.clicked:
-                    if self.phase == "START":
+                    if not "O" in self.flatGrid:
                         self.grid[y][x] = "O"
                         self.phase = "DEST"
                         gui.log("")
                         gui.log("")
                         gui.log("Click a tile as an end point.")
-                    elif self.phase == "DEST":
+                    elif not "X" in self.flatGrid:
                         self.grid[y][x] = "X"
                         self.phase = "WALLS"
                         gui.log("")
@@ -231,9 +240,7 @@ class GameState:
 
                 self.clicked = True
         elif self.square.collidepoint(self.mousePos) and self.mouseClicked[2]:
-            if self.phase == "WALLS":
-                if self.grid[y][x] == "#":
-                    self.grid[y][x] = "."
+            self.grid[y][x] = "."
 
         if self.mouseClicked[0] == False:
             self.clicked = False
@@ -452,7 +459,7 @@ class GameState:
                         openSetFScores.append(tempF)  # and add value
 
             cycles += 1
-            if cycles > 2500:
+            if cycles > ROWS*COLS*10:
                 gui.log("")
                 gui.log("(blocked off?)")
                 gui.log("Path took too long.")
@@ -463,14 +470,14 @@ class GameState:
                 if event.type == pygame.QUIT:
                     global run
                     run = False
-                    pygame.quit()
+                    pygame. quit()
                     raise SystemExit()
 
             # ___----*** VISUALIZE ***----___ #
             if self.visual == False:
                 continue
 
-            clock.tick(FPS / 2)  # Render half speed
+            clock.tick(30)  # Render half speed
 
             self.apply_path_to_grid(
                 self.reconstruct_path(cameFrom, current), "@"
