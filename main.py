@@ -17,7 +17,6 @@ A great help from:
 """
 
 
-
 # ----- CONSTANTS ------------------------ #
 SCREEN_WIDTH = 1000
 SCREEN_HEIGHT = 1000
@@ -258,7 +257,7 @@ class GameState:
                 dx = abs(node.x - goal.x)
                 dy = abs(node.y - goal.y)
                 h = D * (dx + dy) + (D2 - 2 * D) * min(dx, dy)
-        
+
         Octile Method:
             D = 1 and D2 = sqrt(2):
                 dx = abs(node.x - goal.x)
@@ -288,15 +287,15 @@ class GameState:
             dy = abs(y_start - y_end)
             D = 1
             D2 = sqrt(2)
-            h =  D * (dx + dy) + (D2 - 2 * D) * min(dx, dy)
-            #h = D * (dx + dy) + (D2 - 2 * D) * min(dx, dy)
+            h = D * (dx + dy) + (D2 - 2 * D) * min(dx, dy)
+            # h = D * (dx + dy) + (D2 - 2 * D) * min(dx, dy)
         elif METHOD == "Dijkstra":
             h = 0
         else:
             gui.log("")
             gui.log("(none selected?)")
             gui.log("Method error")
-        
+
         return h
 
     def calcCost(self, start, end):
@@ -370,7 +369,7 @@ class GameState:
 
         # The set of discovered nodes
         closedSet = [start]
-        
+
         # For node n, gScore[n] is the cost of the cheapest path from
         # start to n currently known.
         gScore = [[99999 for col in range(COLS)] for row in range(ROWS)]
@@ -404,32 +403,28 @@ class GameState:
 
             if current == dest:
                 # We found the destination
-                path = self.reconstruct_path(
-                    cameFrom, current
-                ) 
-                
+                path = self.reconstruct_path(cameFrom, current)
+
                 gui.log("")
                 gui.log(f"{pygame.time.get_ticks()-oldtime} ms, {cycles} cycles")
                 gui.log(f"Path is {self.get_length_of_path(path)} blocks long.")
-                return path # Recreate path to destination
+                return path  # Recreate path to destination
 
             currentIDX = openSet.index(current)
             openSet.remove(current)  # Remove current from open set
             openSetFScores.pop(currentIDX)  # And remove its fScore value
             # Go through all valid neighbors
             for neighbor in self.findNeighbors(current):
-                if neighbor in closedSet: 
+                if neighbor in closedSet:
                     continue
                 closedSet.append(neighbor)
-                
+
                 currentX, currentY = current
                 neighborX, neighborY = neighbor
                 if self.grid[neighborY][neighborX] == "#":
                     continue  # if it is a wall, stop
                 # tempG is the distance from the start to the neighbor, through current node
-                tempG = gScore[currentY][currentX] + self.calcCost(
-                    current, neighbor
-                )
+                tempG = gScore[currentY][currentX] + self.calcCost(current, neighbor)
                 if tempG < gScore[neighborY][neighborX]:
                     # This is the best path so far to the neighbor
                     # Record values
@@ -440,7 +435,7 @@ class GameState:
                     else:
                         """
                         (A* pwXD)
-                        [h > g]: f = g+h; 
+                        [h > g]: f = g+h;
                         [h ≤ g]: f = (g+(2w-1)h)/w
                         """
                         tempH = self.heuristic(neighbor, dest)
@@ -448,8 +443,8 @@ class GameState:
                             tempF = tempG + tempH
                         else:
                             w = OPTIMALITY_BOUND
-                            tempF = (tempG+(2*w-1)*tempH)/w
-                    
+                            tempF = (tempG + (2 * w - 1) * tempH) / w
+
                     fScore[neighborY][neighborX] = tempF
 
                     if not neighbor in openSet:
@@ -516,23 +511,23 @@ class GameState:
                 x if x != value else "." for x in self.grid[rowCount]
             ]  # removes all of an instance
             rowCount += 1
-    
-    def get_length_of_path(self,path):
+
+    def get_length_of_path(self, path):
         length = 0
         oldnode = path[0]
         for node in path:
-            if node == path[0]: continue
-            length += self.calcCost(oldnode,node)
+            if node == path[0]:
+                continue
+            length += self.calcCost(oldnode, node)
             oldnode = node
-            
-        return round(length*1000)/1000 # Round to nearest 100
-    
+
+        return round(length * 1000) / 1000  # Round to nearest 100
 
 
 class GuiState:
     def __init__(self):
         self.root = tk.Tk()
-        self.root.title('Pathfinder GUI')
+        self.root.title("Pathfinder GUI")
         frame = ttk.Frame(self.root, padding=10)
         frame.grid()
 
@@ -551,11 +546,20 @@ class GuiState:
         heur_box = ttk.Combobox(
             frame,
             textvariable=self.heuristic,
-            values=("A*: Manhattan", "A*: Octile Dist", "A*: Euclidean", "A*: Chebyshev", "Dijkstra"),
+            values=(
+                "A*: Manhattan",
+                "A*: Octile Dist",
+                "A*: Euclidean",
+                "A*: Chebyshev",
+                "Dijkstra",
+            ),
         )
         heur_box.grid(column=0, row=2)
-        ToolTip(heur_box, msg="Select a pathfinding algorithm to use. \n\nManhattan and Octile are usually the most efficient.")
-        
+        ToolTip(
+            heur_box,
+            msg="Select a pathfinding algorithm to use. \n\nManhattan and Octile are usually the most efficient.",
+        )
+
         # Visualize check box
         self.visualize = tk.StringVar()
         visual_box = ttk.Checkbutton(
@@ -570,7 +574,10 @@ class GuiState:
             frame, text="A* Dynamic Weighting?", offvalue="", variable=self.dyn_weight
         )
         self.dyn_weight_box.grid(column=0, row=4)
-        ToolTip(self.dyn_weight_box, msg="Enable weighted A* (using pwXD) \nUsually always speeds up process, but may lead to a suboptimal path.")
+        ToolTip(
+            self.dyn_weight_box,
+            msg="Enable weighted A* (using pwXD) \nUsually always speeds up process, but may lead to a suboptimal path.",
+        )
 
         # Console log
         ttk.Label(frame, text="Console Log:", style="Options.TLabel").grid(
@@ -629,7 +636,7 @@ class GuiState:
         )
         path_button.grid(column=3, row=6)
         ToolTip(path_button, msg="Start pathfinding process.")
-        
+
         self.log("")
         self.log("")
         self.log("Click a tile as an start point.")
@@ -642,19 +649,19 @@ class GuiState:
         method = self.heuristic.get().replace(" ", "")
         if "Manhattan" in method:
             METHOD = "Manhattan"
-            
+
         if "Euclidean" in method:
             METHOD = "Euclidean"
-        
+
         if "OctileDist" in method:
             METHOD = "Octile Dist"
-                
+
         if "Chebyshev" in method:
             METHOD = "Chebyshev"
 
         if "Dijkstra" in method:
             METHOD = "Dijkstra"
-            self.dyn_weight.set("") # Set it to blank
+            self.dyn_weight.set("")  # Set it to blank
             try:
                 self.dyn_weight_box.config(state=tk.DISABLED)  # Disable check box
             except:
