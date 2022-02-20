@@ -126,10 +126,10 @@ class GameState:
                     dist = self.heuristic((x, y), self.dest)
 
                     if self.visual == True:
-                        h = (dist)/360
-                        s = .84
+                        h = (dist) / 360
+                        s = 0.84
                         v = 1
-                        r,g,b = colors.hsv_to_rgb(h,s,v)
+                        r, g, b = colors.hsv_to_rgb(h, s, v)
                         r *= 255
                         g *= 255
                         b *= 255
@@ -137,7 +137,12 @@ class GameState:
                     else:
                         color = (90, 150, 255)
                 # Render square
-                pygame.draw.rect(screen, color, self.square, border_radius=2 if self.grid[y][x] != "@" else 10)
+                pygame.draw.rect(
+                    screen,
+                    color,
+                    self.square,
+                    border_radius=2 if self.grid[y][x] != "@" else 10,
+                )
 
     def pathfinder(self):
         self.remove_all_of("@")  # Clear path that was there
@@ -165,7 +170,7 @@ class GameState:
     def flatten(self, array):
         """Flatten a 2D array"""
         return [item for row in array for item in row]
-    
+
     def save_to_clip(self):
         """
         Turns a grid to a string and copies it to the clipboard
@@ -213,11 +218,12 @@ class GameState:
                         Place the wall
         """
         x, y = pos
-        if self.phase == "BUSY": return
+        if self.phase == "BUSY":
+            return
         if (
             self.square.collidepoint(self.mousePos) and self.mouseClicked[0]
         ):  # If clicked
-            if self.hasPath: 
+            if self.hasPath:
                 self.remove_all_of("@")
             if self.grid[y][x] != "X" and self.grid[y][x] != "O":  # And empty space
 
@@ -459,7 +465,7 @@ class GameState:
                         openSetFScores.append(tempF)  # and add value
 
             cycles += 1
-            if cycles > ROWS*COLS*10:
+            if cycles > ROWS * COLS * 10:
                 gui.log("")
                 gui.log("(blocked off?)")
                 gui.log("Path took too long.")
@@ -470,7 +476,7 @@ class GameState:
                 if event.type == pygame.QUIT:
                     global run
                     run = False
-                    pygame. quit()
+                    pygame.quit()
                     raise SystemExit()
 
             # ___----*** VISUALIZE ***----___ #
@@ -550,7 +556,7 @@ class GuiState:
         # Select heuristic
         self.heuristic = tk.StringVar()
         self.heuristic.set("A*: Manhattan")
-        heur_box = ttk.Combobox(
+        self.heur_box = ttk.Combobox(
             frame,
             textvariable=self.heuristic,
             values=(
@@ -561,19 +567,19 @@ class GuiState:
                 "Dijkstra",
             ),
         )
-        heur_box.grid(column=0, row=2)
+        self.heur_box.grid(column=0, row=2)
         ToolTip(
-            heur_box,
+            self.heur_box,
             msg="Select a pathfinding algorithm to use. \n\nManhattan and Octile are usually the most efficient.",
         )
-
+ 
         # Visualize check box
         self.visualize = tk.StringVar()
-        visual_box = ttk.Checkbutton(
+        self.visual_box = ttk.Checkbutton(
             frame, text="Visualize?", onvalue=True, offvalue="", variable=self.visualize
         )
-        visual_box.grid(column=0, row=3)
-        ToolTip(visual_box, msg="Visualize the pathfinding process step-by-step.")
+        self.visual_box.grid(column=0, row=3)
+        ToolTip(self.visual_box, msg="Visualize the pathfinding process step-by-step.")
 
         # Bounded relaxation/Dynamic weighting
         self.dyn_weight = tk.StringVar()
@@ -603,9 +609,10 @@ class GuiState:
         )
 
         # Remove walls button
-        ttk.Button(
+        self.wall_button = ttk.Button(
             frame, text="Remove All Walls", command=lambda: game.remove_all_of("#")
-        ).grid(column=3, row=1)
+        )
+        self.wall_button.grid(column=3, row=1)
 
         # Function for removing start/end points
         def remove_start_and_end():
@@ -617,39 +624,66 @@ class GuiState:
             del game.dest
 
         # Remove target points
-        ttk.Button(
+        self.start_end_button = ttk.Button(
             frame, text="Remove Start and End", command=remove_start_and_end
-        ).grid(column=3, row=2)
+        )
+        self.start_end_button.grid(column=3, row=2)
 
         # Clipboard copy
-        ttk.Button(frame, text="Save to Clipboard", command=game.save_to_clip).grid(
-            column=3, row=3
+        self.save_button = ttk.Button(
+            frame, text="Save to Clipboard", command=game.save_to_clip
         )
+        self.save_button.grid(column=3, row=3)
 
         # Clipboard paste
-        ttk.Button(frame, text="Load from Clipboard", command=game.load_from_clip).grid(
-            column=3, row=4
+        self.load_button = ttk.Button(
+            frame, text="Load from Clipboard", command=game.load_from_clip
         )
+        self.load_button.grid(column=3, row=4)
 
         # PATHFIND BUTTON
         boldStyle = ttk.Style()
         boldStyle.configure("Bold.TButton", font=("Sans", "12", "bold"))
-        path_button = ttk.Button(
+        self.path_button = ttk.Button(
             frame,
             text="PATHFIND",
             command=game.pathfinder,
             padding=3,
             style="Bold.TButton",
         )
-        path_button.grid(column=3, row=6)
-        ToolTip(path_button, msg="Start pathfinding process.")
+        self.path_button.grid(column=3, row=6)
+        ToolTip(self.path_button, msg="Start pathfinding process.")
 
+        self.widgets = [
+            self.wall_button,
+            self.start_end_button,
+            self.save_button,
+            self.load_button,
+            self.path_button,
+            self.dyn_weight_box,
+            self.visual_box,
+            self.heur_box,
+        ]
         self.log("")
         self.log("")
         self.log("Click a tile as an start point.")
 
+        self.disabled = False
+
     def update(self):
         """Update GUI"""
+        if game.phase == "BUSY":  # If currently pathfinding
+            # Disable all widgets
+            for widget in self.widgets:
+                self._config_widget_state(widget, tk.DISABLED)
+            self.disabled = True
+            self.root.update()
+            return  # Stop
+        
+        if self.disabled:  # If widgets are disabled, enable them
+            for widget in self.widgets:
+                self._config_widget_state(widget, "")
+
         global METHOD
         global VISUALIZE
         global DYNAMIC_WEIGHT
@@ -669,18 +703,11 @@ class GuiState:
         if "Dijkstra" in method:
             METHOD = "Dijkstra"
             self.dyn_weight.set("")  # Set it to blank
-            try:
-                self.dyn_weight_box.config(state=tk.DISABLED)  # Disable check box
-            except:
-                raise SystemExit()  # If gui window is closed
+            self._config_widget_state(self.dyn_weight_box, tk.DISABLED)  # Disable check box
         else:
-            try:
-                self.dyn_weight_box.config(state="")  # Enable checkbox
-            except:
-                raise SystemExit()  # If gui window is closed
+            self._config_widget_state(self.dyn_weight_box, "")
 
         VISUALIZE = self.visualize.get()
-
         DYNAMIC_WEIGHT = self.dyn_weight.get()
 
         self.root.update()
@@ -689,7 +716,12 @@ class GuiState:
         """Log a value to the GUI console"""
         self.console.insert(0, value)
 
-
+    def _config_widget_state(self, widget, state):
+        
+        try:
+            widget.config(state=state)
+        except tk.TclError:
+            raise SystemExit() # If gui window is closed
 # ----- INITIALIZE ------------------------ #
 
 
