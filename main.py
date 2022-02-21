@@ -1,4 +1,4 @@
-from math import sqrt  # Math
+from math import sqrt
 import tkinter as tk  # Gui
 from tkinter import ttk  # Gui
 import pygame  # Main Window
@@ -66,7 +66,7 @@ def drawText(text, font, color, x, y, align="c"):
     screen.blit(img, rect)
 
 
-# ----- GAME CLASS ------------------------ #
+# ----- CLASSES -------------------------- #
 
 
 class GameState:
@@ -77,7 +77,9 @@ class GameState:
 
     def __init__(self):
 
-        self.grid = [["." for col in range(COLS)] for row in range(ROWS)]  # Create grid
+        self.grid = [
+            [0 for col in range(COLS)] for row in range(ROWS)
+        ]  # Create empty grid
 
         self.phase = "START"
 
@@ -93,6 +95,14 @@ class GameState:
         self.square = 0
         self.pressed = False
 
+        for y in range(COLS):
+            for x in range(ROWS):
+                # pos= position---margin---offset------
+                posx = x * self.size + x * SPACE + 5  # Position X
+                posy = y * self.size + y * SPACE + 5  # Position Y
+                tile = Tile((posx, posy), (x, y), self.size, self)
+                self.grid[y][x] = tile
+
     def render(self):
         """
         Draws screen and handles inputs
@@ -101,48 +111,20 @@ class GameState:
         self.hasPath = "@" in self.flatGrid
         self.mousePos = pygame.mouse.get_pos()
         self.mouseClicked = pygame.mouse.get_pressed()
-        for y in range(COLS):
-            for x in range(ROWS):
-                # pos= position---margin---offset------
-                posx = x * self.size + x * SPACE + 5  # Position X
-                posy = y * self.size + y * SPACE + 5  # Position Y
-                self.square = pygame.rect.Rect(
-                    posx, posy, self.size, self.size
-                )  # Create square object
-                # Logic
-                self.updateTile((x, y))
-                # Visualize colors
-                if self.grid[y][x] == ".":
-                    color = DGREY
-                elif self.grid[y][x] == "#":
-                    color = LGREY
-                elif self.grid[y][x] == "O":
-                    color = (3, 252, 161)
-                    self.start = (x, y)
-                elif self.grid[y][x] == "X":
-                    color = (255, 33, 107)
-                    self.dest = (x, y)
-                elif self.grid[y][x] == "@":
-                    dist = self.heuristic((x, y), self.dest)
 
-                    if self.visual == True:
-                        h = (dist) / 360
-                        s = 0.84
-                        v = 1
-                        r, g, b = colors.hsv_to_rgb(h, s, v)
-                        r *= 255
-                        g *= 255
-                        b *= 255
-                        color = (r, g, b)
-                    else:
-                        color = (90, 150, 255)
-                # Render square
-                pygame.draw.rect(
-                    screen,
-                    color,
-                    self.square,
-                    border_radius=2 if self.grid[y][x] != "@" else 10,
-                )
+        if self.phase == "BUSY":
+            return
+
+        for row in self.grid:
+            for tile in row:
+                tile.update()  # Update tile
+
+                if tile.get_val() == "O":
+                    self.start = tile.get_coords()
+                if tile.get_val() == "X":
+                    self.dest = tile.get_coords()
+
+                tile.draw()
 
     def pathfinder(self):
         self.remove_all_of("@")  # Clear path that was there
@@ -169,7 +151,7 @@ class GameState:
 
     def flatten(self, array):
         """Flatten a 2D array"""
-        return [item for row in array for item in row]
+        return [item.get_val() for row in array for item in row]
 
     def save_to_clip(self):
         """
@@ -195,61 +177,8 @@ class GameState:
             for i in range(len(code)):
                 x = i % ROWS  # Solve for x
                 y = int(i / ROWS)  # and y
-                self.grid[y][x] = code[i]
+                self.grid[y][x].set_val(code[i])
         self.remove_all_of("@")  # Incase it contains the path
-
-    def updateTile(self, pos):
-
-        """
-        Usage: squareLogic((x,y), square, mouseClicked, mousePos)
-        Handles inputs to each square
-
-            "." = Empty space
-            "#" = Wall/Barrier
-            "O" = Start
-            "X" = Destination
-            "@" = Path
-        """
-        """
-                If a tile is clicked, check if it is open.
-                    If it is open, check if we have already clicked last frame.
-                        Place the corresponding square for each phase.
-                    If we have already clicked last frame, check if we are placing a wall
-                        Place the wall
-        """
-        x, y = pos
-        if self.phase == "BUSY":
-            return
-        if (
-            self.square.collidepoint(self.mousePos) and self.mouseClicked[0]
-        ):  # If clicked
-            if self.hasPath:
-                self.remove_all_of("@")
-            if self.grid[y][x] != "X" and self.grid[y][x] != "O":  # And empty space
-
-                if not self.clicked:
-                    if not "O" in self.flatGrid:
-                        self.grid[y][x] = "O"
-                        self.phase = "DEST"
-                        gui.log("")
-                        gui.log("")
-                        gui.log("Click a tile as an end point.")
-                    elif not "X" in self.flatGrid:
-                        self.grid[y][x] = "X"
-                        self.phase = "WALLS"
-                        gui.log("")
-                        gui.log("Right click to delete barriers.")
-                        gui.log("Left click to add barriers.")
-
-                elif self.phase == "WALLS":
-                    self.grid[y][x] = "#"
-
-                self.clicked = True
-        elif self.square.collidepoint(self.mousePos) and self.mouseClicked[2]:
-            self.grid[y][x] = "."
-
-        if self.mouseClicked[0] == False:
-            self.clicked = False
 
     def heuristic(self, start, end):
         """
@@ -321,7 +250,7 @@ class GameState:
 
     def findNeighbors(self, node):
         def tryAdd(nx, ny):
-            if self.grid[ny][nx] != "#":  # If it is not a wall,
+            if self.grid[ny][nx].get_val() != "#":  # If it is not a wall,
                 neighbors.append((nx, ny))  # add to neighbors list
 
         neighbors = []
@@ -434,7 +363,7 @@ class GameState:
 
                 currentX, currentY = current
                 neighborX, neighborY = neighbor
-                if self.grid[neighborY][neighborX] == "#":
+                if self.grid[neighborY][neighborX].get_val() == "#":
                     continue  # if it is a wall, stop
                 # tempG is the distance from the start to the neighbor, through current node
                 tempG = gScore[currentY][currentX] + self.calcCost(current, neighbor)
@@ -509,8 +438,8 @@ class GameState:
             return
         for node in path:
             x, y = node
-            if self.grid[y][x] != "X" and self.grid[y][x] != "O":
-                self.grid[y][x] = value
+            if self.grid[y][x].get_val() != "X" and self.grid[y][x].get_val() != "O":
+                self.grid[y][x].set_val(value)
 
     def remove_all_of(self, value):
         """
@@ -518,12 +447,10 @@ class GameState:
 
         Usage: remove_all_of("@")
         """
-        rowCount = 0
         for row in self.grid:
-            self.grid[rowCount] = [
-                x if x != value else "." for x in self.grid[rowCount]
-            ]  # removes all of an instance
-            rowCount += 1
+            for tile in row:
+                if tile.get_val() == value:
+                    tile.set_val(".")
 
     def get_length_of_path(self, path):
         length = 0
@@ -535,6 +462,112 @@ class GameState:
             oldnode = node
 
         return round(length * 1000) / 1000  # Round to nearest 100
+
+
+class Tile:
+
+    BORDER_RADIUS = 2
+
+    def __init__(self, screenPos, gridPos, size, game):
+        self.game = game
+
+        self.xpos, self.ypos = screenPos
+        self.gridx, self.gridy = gridPos
+        self.size = size
+        self.value = "."
+
+        self.square = pygame.rect.Rect(self.xpos, self.ypos, self.size, self.size)
+
+    def update(self):
+        """
+        Usage: tile.update((mouseClicked, mousePos), gamePhase, gridValues, hasPath, clicked)
+        Handles inputs to each square
+
+            "." = Empty space
+            "#" = Wall/Barrier
+            "O" = Start
+            "X" = Destination
+            "@" = Path
+        """
+        """
+
+                If a tile is clicked, check if it is open.
+                    If it is open, check if we have already clicked last frame.
+                        Place the corresponding square for each phase.
+                    If we have already clicked last frame, check if we are placing a wall
+                        Place the wall
+        """
+
+        if (
+            self.square.collidepoint(self.game.mousePos) and self.game.mouseClicked[0]
+        ):  # If clicked
+            if self.game.hasPath:
+                self.game.remove_all_of("@")
+            if self.value != "X" and self.value != "O":  # And empty space
+
+                if not self.game.clicked:
+                    if not "O" in self.game.flatGrid:
+                        self.value = "O"
+                        self.game.phase = "DEST"
+                        gui.log("")
+                        gui.log("")
+                        gui.log("Click a tile as an end point.")
+                    elif not "X" in self.game.flatGrid:
+                        self.value = "X"
+                        self.game.phase = "WALLS"
+                        gui.log("")
+                        gui.log("Right click to delete barriers.")
+                        gui.log("Left click to add barriers.")
+
+                elif self.game.phase == "WALLS":
+                    self.value = "#"
+
+                self.game.clicked = True
+        elif self.square.collidepoint(self.game.mousePos) and self.game.mouseClicked[2]:
+            self.value = "."
+
+        if self.game.mouseClicked[0] == False:
+            self.game.clicked = False
+
+    def draw(self):
+        if self.value == ".":
+            color = DGREY
+        elif self.value == "#":
+            color = LGREY
+        elif self.value == "O":
+            color = (3, 252, 161)
+        elif self.value == "X":
+            color = (255, 33, 107)
+        elif self.value == "@":
+            dist = self.game.heuristic(self.get_coords(), self.game.dest)
+
+            if self.game.visual == True:
+                h = (dist) / 360
+                s = 0.84
+                v = 1
+                r, g, b = colors.hsv_to_rgb(h, s, v)
+                r *= 255
+                g *= 255
+                b *= 255
+                color = (r, g, b)
+            else:
+                color = (90, 150, 255)
+        # Render square
+        pygame.draw.rect(
+            screen,
+            color,
+            self.square,
+            border_radius=2 if self.value != "@" else 10,
+        )
+
+    def set_val(self, value):
+        self.value = value
+
+    def get_val(self):
+        return self.value
+
+    def get_coords(self):
+        return (self.gridx, self.gridy)
 
 
 class GuiState:
@@ -572,7 +605,7 @@ class GuiState:
             self.heur_box,
             msg="Select a pathfinding algorithm to use. \n\nManhattan and Octile are usually the most efficient.",
         )
- 
+
         # Visualize check box
         self.visualize = tk.StringVar()
         self.visual_box = ttk.Checkbutton(
@@ -620,8 +653,10 @@ class GuiState:
             game.remove_all_of("O")
             game.remove_all_of("@")
             game.phase = "START"
-            del game.start
-            del game.dest
+            if hasattr(game, "start"):
+                del game.start
+            if hasattr(game, "dest"):
+                del game.dest
 
         # Remove target points
         self.start_end_button = ttk.Button(
@@ -679,7 +714,7 @@ class GuiState:
             self.disabled = True
             self.root.update()
             return  # Stop
-        
+
         if self.disabled:  # If widgets are disabled, enable them
             for widget in self.widgets:
                 self._config_widget_state(widget, "")
@@ -703,7 +738,9 @@ class GuiState:
         if "Dijkstra" in method:
             METHOD = "Dijkstra"
             self.dyn_weight.set("")  # Set it to blank
-            self._config_widget_state(self.dyn_weight_box, tk.DISABLED)  # Disable check box
+            self._config_widget_state(
+                self.dyn_weight_box, tk.DISABLED
+            )  # Disable check box
         else:
             self._config_widget_state(self.dyn_weight_box, "")
 
@@ -717,11 +754,13 @@ class GuiState:
         self.console.insert(0, value)
 
     def _config_widget_state(self, widget, state):
-        
+
         try:
             widget.config(state=state)
         except tk.TclError:
-            raise SystemExit() # If gui window is closed
+            raise SystemExit()  # If gui window is closed
+
+
 # ----- INITIALIZE ------------------------ #
 
 
