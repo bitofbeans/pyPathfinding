@@ -4,18 +4,14 @@
 
 A gui made with python using the A* Pathfinding algorithm  
 
-[![5o9l5u-QLP.png](https://i.postimg.cc/R01zxFnG/5o9l5u-QLP.png)](https://postimg.cc/mcrnQTjF)
+[![5o-APWIWNb.png](https://i.postimg.cc/fTZ4nY6x/5o-APWIWNb.png)](https://postimg.cc/JtTYjH7n)
 
 ## How to use
 Install and run `main.py`
 
-First, click on any square to choose a starting point.
-
-Then, click on another square for an ending point.
-
-Place walls as needed.
-
-Press space to start pathfinding.
+Click on tiles to place a start and an end point.
+Right click to remove tiles.
+Place barriers as needed, right click to remove them. cock
 
 Choose options in the gui.
 
